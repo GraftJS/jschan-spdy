@@ -34,9 +34,15 @@ SPDYReadChannel.prototype._transform = function transform(buf, enc, done) {
 };
 
 SPDYReadChannel.prototype.handleIn = function handleIn(inStream) {
+  var that = this;
+
   this._inStream = inStream;
 
   this._inStream.pipe(this);
+
+  this._inStream.on('end', function() {
+    that._outStream.end();
+  });
 
   this._inStream.on('error', this.emit.bind(this, 'error'));
 };

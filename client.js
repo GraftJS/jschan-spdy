@@ -97,9 +97,18 @@ inherits(ClientSession, EventEmitter);
 
 ClientSession.prototype._createNewStream = function newStream(chan, parentId) {
   var headers = {};
+  var toClose = 2;
+  var that = this;
 
   headers['libchan-ref'] = chan.id;
   headers['libchan-parent-ref'] = parentId;
+
+  function wrapUpClose() {
+    if (--toClose === 0) {
+      delete that._channels[chan.id];
+      chan.emit('channelClosed');
+    }
+  }
 
   var req = http.request({
     host: this.opts.host,
@@ -109,6 +118,7 @@ ClientSession.prototype._createNewStream = function newStream(chan, parentId) {
     method: 'POST',
     agent: this.agent
   }, function(res) {
+    res.on('end', wrapUpClose);
     chan.handleIn(res);
   });
 
@@ -122,6 +132,8 @@ ClientSession.prototype._createNewStream = function newStream(chan, parentId) {
   req._implicitHeader();
   req._send('');
 
+  req.on('finish', wrapUpClose);
+
   return req;
 };
 
@@ -132,10 +144,6 @@ function createChannel(session, Klass, parent) {
   session._nextId += 2;
 
   session._channels[id] = chan;
-
-  chan.on('close', function() {
-    delete session._channels[id];
-  });
 
   chan.on('error', session.emit.bind(session, 'error'));
 
@@ -153,6 +161,10 @@ ClientSession.prototype._createWriteChannel = function(parent) {
 };
 
 ClientSession.prototype.WriteChannel = function() {
+  if (this._closing || this._closed) {
+    throw new Error('Session closed');
+  }
+  
   return createChannel(this, WriteChannel, '0');
 };
 
@@ -161,7 +173,13 @@ ClientSession.prototype._createByteStream = function() {
   return createChannel(this, ByteStream, '');
 };
 
-ClientSession.prototype.close = function close(done) {
+ClientSession.prototype.close = function close(wait, done) {
+
+  if (typeof wait === 'function' || wait !== false) {
+    done = wait;
+    wait = true;
+  }
+
   if (this._closing) {
     return done && this.on('close', done) || this;
   } else if (this._closed) {
@@ -177,7 +195,13 @@ ClientSession.prototype.close = function close(done) {
     if (!that._channels[id]) {
       return cb();
     }
-    channel.forceClose(cb);
+
+    if (wait) {
+      channel.on('channelClosed', cb);
+    } else {
+      channel.destroy(cb);
+    }
+
   }, function(err) {
     if (err && done) {
       done(err);
@@ -197,6 +221,10 @@ ClientSession.prototype.close = function close(done) {
   });
 
   return this;
+};
+
+ClientSession.prototype.destroy = function(cb) {
+  this.close(false, cb);
 };
 
 module.exports = ClientSession;

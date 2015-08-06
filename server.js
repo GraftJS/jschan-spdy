@@ -119,7 +119,7 @@ ServerSession.prototype._receive = function receive(req, res) {
   res._send('');
 };
 
-ServerSession.prototype.close = function close(cb) {
+ServerSession.prototype.destroy = function close(cb) {
   var that = this;
 
   if (cb) {
@@ -127,7 +127,7 @@ ServerSession.prototype.close = function close(cb) {
   }
 
   async.each(Object.keys(this._channels), function(id, cb) {
-    that._channels[id].forceClose(cb);
+    that._channels[id].destroy(cb);
   }, function(err) {
     if (cb) {
       return cb(err);
@@ -179,5 +179,7 @@ function spdyServer(opts) {
 
   return server;
 }
+
+ServerSession.prototype.close = ServerSession.prototype.destroy;
 
 module.exports = spdyServer;
