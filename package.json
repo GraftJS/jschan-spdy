@@ -28,8 +28,7 @@
   },
   "scripts": {
     "test": "mocha --recursive test 2>&1",
-    "jshint": "jshint --exclude-path .gitignore .",
-    "test-browser": "zuul --local 8080 -- test/websocket_client.js"
+    "jshint": "jshint --exclude-path .gitignore ."
   },
   "pre-commit": [
     "jshint",
@@ -38,9 +37,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/GraftJS/jschan.git"
-  },
-  "browser": {
-    "./lib/jschan.js": "./lib/jschan_browser.js"
   },
   "devDependencies": {
     "concat-stream": "^1.4.6",
